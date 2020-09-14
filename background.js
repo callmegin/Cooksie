@@ -6,9 +6,13 @@ const getUrl = (link) => link.split("/")[2];
 //   // No tabs or host permissions needed!
 //   console.log("clicked on a tab");
 // });
+const setBadgeColor = (color) => {
+  chrome.browserAction.setBadgeBackgroundColor({ color: color });
+};
 
-chrome.browserAction.setBadgeBackgroundColor({ color: "green" });
-chrome.browserAction.setBadgeText({ text: "..." });
+const setBadgeText = (text) => {
+  chrome.browserAction.setBadgeText({ text: text });
+};
 
 const getCookies = () => {
   chrome.tabs.executeScript(
@@ -36,26 +40,20 @@ const getDomain = (info) => {
   });
 };
 // getDomain(activeInfo).then((result) => console.log("activeInfo " + result));
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  // console.clear();
-  console.log("onActivated");
-});
-chrome.tabs.onCreated.addListener((tab) => {
-  // console.clear();
-  console.log("onCreated");
-});
 
-const waitForPageLoad = () => {
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    console.log("onUpdated");
-    if (
-      changeInfo.url !== "chrome://newtab/" &&
-      typeof changeInfo.url !== "undefined"
-    ) {
-      console.log("PAGE LOAD DETECTED " + tab.url);
-    }
-    if (changeInfo.status === "complete") {
-      console.log("LOADED");
-    }
-  });
-};
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  setBadgeColor("red");
+  setBadgeText(" ");
+  chrome.tabs.onUpdated.addListener(
+    (listener = (tabId, changeInfo, tab) => {
+      // console.log(changeInfo);
+      // console.log(tab);
+      if (tab.url === "chrome://newtab/") return;
+      if (typeof tab.url === "undefined") return;
+      if (tab.status !== "complete") return;
+
+      setBadgeColor("green");
+      chrome.tabs.onUpdated.removeListener(listener);
+    })
+  );
+});
