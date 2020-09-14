@@ -1,0 +1,33 @@
+{
+  "name": "Cooksie",
+  "version": "1.0",
+  "description": "See how many cookies you eat on each website visit",
+  "permissions": [
+    "https://*/",
+    "http://*/",
+    "activeTab",
+    "cookies",
+    "tabs",
+    "contentSettings"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/Cookie 16.png",
+      "32": "images/Cookie 32.png",
+      "48": "images/Cookie 64.png",
+      "128": "images/Cookie 128.png"
+    }
+  },
+  "icons": {
+    "16": "images/Cookie 16.png",
+    "32": "images/Cookie 32.png",
+    "48": "images/Cookie 64.png",
+    "128": "images/Cookie 128.png"
+  },
+  "manifest_version": 2
+}
