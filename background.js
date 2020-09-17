@@ -1,5 +1,8 @@
 let tabsData = [];
 let previousDomain = "";
+
+let activeTab = "";
+let activeDomain = "";
 // {
 //   id: "",
 //   currentUrl: "",
@@ -39,15 +42,6 @@ const updateObjValue = (id, key, value) => {
   }
 };
 
-const updateRequired = (currDom) => {
-  if (currDom === previousDomain) {
-    return false;
-  } else {
-    previousDomain = currDom;
-    return true;
-  }
-};
-
 const setBadgeColor = (color) => {
   chrome.browserAction.setBadgeBackgroundColor({ color: color });
 };
@@ -80,22 +74,35 @@ const getDomain = (tabUrl) => {
 };
 //onCreated
 chrome.tabs.onCreated.addListener((tab) => {
+  // console.log("onCreated");
   addObjToArray(tab.id);
   // console.log(tabsData);
 });
 
 //onRemoved
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  console.log(tabsData);
   tabsData = tabsData.filter((obj) => obj.id != tabId);
-  // console.log(tabsData);
+  console.log(tabsData);
 });
 
 //onActivated
 chrome.tabs.onActivated.addListener((activeInfo) => {
   // console.log("onactivated");
+  activeTab = activeInfo.tabId;
   setBadgeColor("red");
   setBadgeText("#");
 });
+
+const updateRequired = (currDom, tabId) => {
+  let tabObj = tabsData.find((obj) => obj.id === tabId);
+  if (currDom === tabObj.currentUrl) {
+    return false;
+  } else {
+    tabObj.currentUrl = currDom;
+    return true;
+  }
+};
 
 //onUpdated
 chrome.tabs.onUpdated.addListener(
@@ -105,21 +112,13 @@ chrome.tabs.onUpdated.addListener(
     if (typeof tab.url === "undefined") return;
     if (tab.status !== "complete") return;
     let domain = getDomain(tab.url);
-    if (!updateRequired(domain)) return;
-    console.log("updateRequired");
-    updateObjValue(tabId, "currentUrl", domain);
-
-    // console.log("onUpdated - removeListener");
-    // chrome.tabs.onUpdated.removeListener(listener);
-
-    setBadgeColor("green");
-    getCookies().then((result) => setBadgeText(result.toString()));
+    if (!updateRequired(domain, tabId)) {
+      return;
+    } else {
+      console.log("updateRequired");
+      // updateObjValue(tabId, "currentUrl", domain);
+      setBadgeColor("green");
+      getCookies().then((result) => setBadgeText(result.toString()));
+    }
   })
 );
-
-// chrome.webNavigation.onBeforeNavigate.addListener(
-//   (navigateListener = (details) => {
-//     console.log("onbeforeNavigate");
-//     chrome.tabs.onUpdated.removeListener(navigateListener);
-//   })
-// );
