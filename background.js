@@ -1,45 +1,102 @@
-let tabsData = [];
 let previousDomain = "";
 
 let activeTab = "";
 let activeDomain = "";
-// {
-//   id: "",
-//   currentUrl: "",
-//   cookies: {
-//     urls: "",
-//     amount: "",
-//   },
-// },
 
-const getUrl = (link) => link.split("/")[2];
+// Setting
 
-//Below doesn't work
-//
-// chrome.browserAction.onClicked.addListener((tab) => {
-//   // No tabs or host permissions needed!
-//   console.log("clicked on a tab");
+const objValuesToArray = (obj) => Object.values(obj);
+
+const objKeyToArray = (obj) => Object.keys(obj);
+
+const generateTable = (obj) => {
+  // console.log(obj);
+};
+
+// arr.map((key) => {
+//   console.log(key);
 // });
+// let outerArr = objValuesToArray(obj);
+// console.log(outerArr);
+// let innerArr = [];
+// outerArr.map((el) => {
+//   if (typeof el !== "object") {
+//     //do smth here
+//     // console.log(el);
+//   } else {
+//     innerArr = objValuesToArray(el);
+//     innerArr.map((innerEl) => {
+//       console.log(innerEl);
+//     });
+//     // generateTable(el);
+//   }
+// });
+//for now adding new row can be done here
 
-const addObjToArray = (tabId) => {
+// const getDataFromStorage = (obj) => {
+//   let items = [];
+//   return new Promise((resolve) => {
+//     chrome.storage.sync.get((items) => {
+//       console.log(items);
+//       if (!(Object.keys(items).length > 0) && !items.data) {
+//         items.data = [obj];
+//       } else {
+//         items.data.push(obj);
+//       }
+//       resolve(items);
+//     });
+//   });
+// };
+const setStorage = (obj) => {
+  chrome.storage.sync.get((items) => {
+    if (!(Object.keys(items).length > 0) && !items.data) {
+      items.data = [obj];
+    } else {
+      items.data.push(obj);
+    }
+    chrome.storage.sync.set(items, () => {});
+  });
+};
+const saveToStorage = (tabId) => {
   let obj = {
     id: tabId,
     currentUrl: "",
-    cookies: {
-      urls: "",
-      amount: "",
-    },
+    cookiesUrls: "",
+    cookiesAmount: "",
   };
-  tabsData = [...tabsData, obj];
+  setStorage(obj);
 };
 
-const updateObjValue = (id, key, value) => {
-  let tabData = tabsData.find((tab) => tab.id === id);
-  if (tabData && tabData[key] !== value) {
-    tabData[key] = value;
+//====================================
+//Not needed anymore
+//====================================
+// const updateObjValue = (id, key, value) => {
+//   let tabData = tabsData.find((tab) => tab.id === id);
+//   if (tabData && tabData[key] !== value) {
+//     tabData[key] = value;
 
-    console.log(tabsData);
-  }
+//     // console.log(tabsData);
+//   }
+// };
+
+const updateRequired = (currDom, tabId) => {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get("data", (items) => {
+      console.log(items);
+      const objIndex = items.data.findIndex((elem) => elem.id === tabId);
+      if (objIndex == "-1") return;
+      let obj = items.data[objIndex];
+      if (currDom === obj.currentUrl) {
+        resolve(false);
+      } else {
+        obj.currentUrl = currDom;
+        chrome.storage.sync.set(items, () => {});
+        resolve(true);
+      }
+    });
+
+    // items.data[objIndex].currentUrl = "testing";
+  });
 };
 
 const setBadgeColor = (color) => {
@@ -47,27 +104,40 @@ const setBadgeColor = (color) => {
 };
 
 const setBadgeText = (text) => {
+  console.log(text);
   chrome.browserAction.setBadgeText({ text: text });
 };
 
 const getCookies = () => {
-  return new Promise((resolve) => {
-    chrome.tabs.executeScript(
-      {
-        code: 'performance.getEntriesByType("resource").map(el => el.name)',
-      },
-      (data) => {
-        const len = data[0].length;
-        // console.log(data[0]);
-        resolve(len);
-      }
-    );
-  });
+  chrome.tabs.executeScript(
+    {
+      code: 'performance.getEntriesByType("resource").map(el => el.name)',
+    },
+    (data) => {
+      if (!data) return;
+      const urls = data[0].map((url) => url.split(/[#?]/)[0]);
+      const uniqueUrls = [...new Set(urls).values()].filter(Boolean);
+      Promise.all(
+        uniqueUrls.map(
+          (url) =>
+            new Promise((resolve) => {
+              console.log(url);
+              chrome.cookies.getAll({ url }, resolve);
+            })
+        )
+      ).then((result) => {
+        const cookies = [
+          ...new Map(
+            [].concat(...result).map((c) => [JSON.stringify(c), c])
+          ).values(),
+        ];
+        console.log(cookies);
+      });
+    }
+  );
 };
 
 const getDomain = (tabUrl) => {
-  console.log("getDomain"); //get current url
-  //     let link = tab.url;
   let url = new URL(tabUrl);
   let domain = url.hostname;
   return domain;
@@ -75,15 +145,13 @@ const getDomain = (tabUrl) => {
 //onCreated
 chrome.tabs.onCreated.addListener((tab) => {
   // console.log("onCreated");
-  addObjToArray(tab.id);
+  saveToStorage(tab.id);
   // console.log(tabsData);
 });
 
 //onRemoved
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  console.log(tabsData);
-  tabsData = tabsData.filter((obj) => obj.id != tabId);
-  console.log(tabsData);
+  // tabsData = tabsData.filter((obj) => obj.id != tabId);
 });
 
 //onActivated
@@ -94,31 +162,38 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   setBadgeText("#");
 });
 
-const updateRequired = (currDom, tabId) => {
-  let tabObj = tabsData.find((obj) => obj.id === tabId);
-  if (currDom === tabObj.currentUrl) {
-    return false;
-  } else {
-    tabObj.currentUrl = currDom;
-    return true;
-  }
-};
-
 //onUpdated
 chrome.tabs.onUpdated.addListener(
   (listener = (tabId, changeInfo, tab) => {
-    // console.log("onupdated");
-    if (!tab.url.startsWith("http")) return;
-    if (typeof tab.url === "undefined") return;
-    if (tab.status !== "complete") return;
+    console.log("onupdated");
     let domain = getDomain(tab.url);
-    if (!updateRequired(domain, tabId)) {
-      return;
-    } else {
-      console.log("updateRequired");
-      // updateObjValue(tabId, "currentUrl", domain);
-      setBadgeColor("green");
-      getCookies().then((result) => setBadgeText(result.toString()));
-    }
+    if (!tab.url.startsWith("http")) return;
+    if (typeof tab.url === "undefined" || typeof domain === "undefined") return;
+    if (tab.status !== "complete") return;
+
+    updateRequired(domain, tabId).then((result) => {
+      if (!result) {
+        console.log("update not required");
+        return;
+      } else {
+        console.log("updateRequired");
+        getCookies();
+        // getCookies().then((result) => {
+        //   console.log(result);
+        //   // setBadgeColor("green");
+        //   // setBadgeText(result.toString());
+        // });
+      }
+    });
+
+    // if (!updateRequired(domain, tabId)) {
+    //   console.log("update not required");
+    //   return;
+    // } else {
+    //   console.log("updateRequired");
+    //   // updateObjValue(tabId, "currentUrl", domain);q
+    //   setBadgeColor("green");
+    //   getCookies().then((result) => setBadgeText(result.toString()));
+    // }
   })
 );

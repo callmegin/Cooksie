@@ -3,13 +3,13 @@
   "version": "1.0",
   "description": "See how many cookies you eat on each website visit",
   "permissions": [
-    "https://*/",
-    "http://*/",
+    "<all_urls>",
     "activeTab",
     "cookies",
     "tabs",
     "contentSettings",
-    "webNavigation"
+    "webNavigation",
+    "storage"
   ],
   "background": {
     "scripts": ["background.js"],
