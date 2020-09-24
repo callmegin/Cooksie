@@ -92,6 +92,7 @@ const updateRequired = (currDom, tabId) => {
     chrome.storage.sync.get("data", (items) => {
       let obj = getObjectById(items.data, tabId);
       // if (!obj) resolve(false);
+      if (!Object.keys(obj).length > 0) resolve(false);
       if (currDom === obj.currentUrl) {
         resolve(false);
       } else {
@@ -126,10 +127,12 @@ const removeTab = (tabId) => {
 };
 
 const setBadgeColor = (color) => {
+  console.log("setBadgeColor - " + color);
   chrome.browserAction.setBadgeBackgroundColor({ color: color });
 };
 
 const setBadgeText = (text) => {
+  console.log("setBadgeText - " + text);
   chrome.browserAction.setBadgeText({ text: text });
 };
 
@@ -191,7 +194,8 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 const setBadgeData = (items, activeTab) => {
   console.log(items);
   let obj = getObjectById(items, activeTab);
-  if (Object.keys(obj).length > 0 && obj) {
+  console.log(Object.keys(obj).length);
+  if (Object.keys(obj).length > 0 && obj.cookiesAmount !== "") {
     console.log(obj);
     setBadgeColor("green");
     setBadgeText(obj.cookiesAmount.toString());
