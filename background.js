@@ -1,6 +1,7 @@
 let previousDomain = "";
 
 let activeTab = "";
+let removingTab = false;
 let activeDomain = "";
 
 // Setting
@@ -57,7 +58,7 @@ const setStorage = (obj) => {
     chrome.storage.sync.set(items, () => {});
   });
 };
-const saveToStorage = (tabId) => {
+const addNewTab = (tabId) => {
   let obj = {
     id: tabId,
     currentUrl: "",
@@ -78,14 +79,19 @@ const saveToStorage = (tabId) => {
 //     // console.log(tabsData);
 //   }
 // };
+const getObjectById = (objArr, tabId) => {
+  let obj = {};
+  const objIndex = objArr.findIndex((elem) => elem.id === tabId);
+  if (objIndex == "-1") return obj;
+  obj = objArr[objIndex];
+  return obj;
+};
 
 const updateRequired = (currDom, tabId) => {
   return new Promise((resolve) => {
     chrome.storage.sync.get("data", (items) => {
-      console.log(items);
-      const objIndex = items.data.findIndex((elem) => elem.id === tabId);
-      if (objIndex == "-1") return;
-      let obj = items.data[objIndex];
+      let obj = getObjectById(items.data, tabId);
+      // if (!obj) resolve(false);
       if (currDom === obj.currentUrl) {
         resolve(false);
       } else {
@@ -94,8 +100,28 @@ const updateRequired = (currDom, tabId) => {
         resolve(true);
       }
     });
+  });
+};
 
-    // items.data[objIndex].currentUrl = "testing";
+const updateTabData = (key, value, tabId) => {
+  chrome.storage.sync.get((items) => {
+    let obj = getObjectById(items.data, tabId);
+    // if (!obj) return false;
+    obj[key] = value;
+    console.log(obj);
+    console.log(items);
+    chrome.storage.sync.set(items, () => {});
+  });
+};
+
+const removeTab = (tabId) => {
+  chrome.storage.sync.get((items) => {
+    if (Object.keys(items).length > 0 && items.data) {
+      items.data = items.data.filter((elem) => elem.id !== tabId);
+      console.log("Removing");
+      console.log(items);
+      chrome.storage.sync.set(items, () => {});
+    }
   });
 };
 
@@ -104,34 +130,38 @@ const setBadgeColor = (color) => {
 };
 
 const setBadgeText = (text) => {
-  console.log(text);
   chrome.browserAction.setBadgeText({ text: text });
 };
 
-const getCookies = () => {
+const getCookies = (tabId) => {
   chrome.tabs.executeScript(
     {
       code: 'performance.getEntriesByType("resource").map(el => el.name)',
     },
     (data) => {
-      if (!data) return;
+      console.log("tabId in cookies - " + tabId);
+      if (!data || !data[0] || chrome.runtime.lastError) {
+        console.log("getCookies failed on if");
+        return;
+      }
       const urls = data[0].map((url) => url.split(/[#?]/)[0]);
       const uniqueUrls = [...new Set(urls).values()].filter(Boolean);
       Promise.all(
         uniqueUrls.map(
           (url) =>
             new Promise((resolve) => {
-              console.log(url);
               chrome.cookies.getAll({ url }, resolve);
             })
         )
       ).then((result) => {
         const cookies = [
           ...new Map(
-            [].concat(...result).map((c) => [JSON.stringify(c), c])
+            [].concat(...result).map((elem) => [JSON.stringify(elem), elem])
           ).values(),
         ];
-        console.log(cookies);
+        setBadgeColor("green");
+        setBadgeText(cookies.length.toString());
+        updateTabData("cookiesAmount", cookies.length.toString(), tabId);
       });
     }
   );
@@ -143,23 +173,78 @@ const getDomain = (tabUrl) => {
   return domain;
 };
 //onCreated
-chrome.tabs.onCreated.addListener((tab) => {
-  // console.log("onCreated");
-  saveToStorage(tab.id);
-  // console.log(tabsData);
-});
+// chrome.tabs.onCreated.addListener((tab) => {
+//   // console.log("onCreated");
+//   console.log(tab);
+//   addNewTab(tab.id);
+//   // console.log("onCreated done");
+//   // console.log(tabsData);
+// });
 
 //onRemoved
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  // tabsData = tabsData.filter((obj) => obj.id != tabId);
+  console.log("removing - " + tabId);
+  removingTab = true;
+  removeTab(tabId);
 });
+
+const setBadgeData = (items, activeTab) => {
+  console.log(items);
+  let obj = getObjectById(items, activeTab);
+  if (Object.keys(obj).length > 0 && obj) {
+    console.log(obj);
+    setBadgeColor("green");
+    setBadgeText(obj.cookiesAmount.toString());
+  } else {
+    setBadgeColor("red");
+    setBadgeText("#");
+  }
+};
 
 //onActivated
 chrome.tabs.onActivated.addListener((activeInfo) => {
-  // console.log("onactivated");
+  console.log("////////// onActivated //////////");
+  console.log(activeTab);
+  console.log(activeInfo.tabId);
+  if (removingTab) {
+    console.log("Removing in progress");
+    removingTab = false;
+    return;
+  }
+  console.log("All good ======");
+
   activeTab = activeInfo.tabId;
-  setBadgeColor("red");
-  setBadgeText("#");
+  console.log(activeTab);
+  chrome.storage.sync.get((items) => {
+    console.log("onActivated storage get");
+    console.log(items);
+
+    if (!(Object.keys(items).length > 0) && !items.data) {
+      addNewTab(activeTab);
+      new Promise((resolve) => {
+        console.log("ACTIVATED - New Promise");
+        chrome.storage.onChanged.addListener(resolve);
+      }).then((data) => {
+        console.log("ACTIVATED - Promise.then");
+        console.log(data.data.newValue);
+        setBadgeData(data.data.newValue, activeTab);
+      });
+    } else if (!items.data.find((elem) => elem.id === activeTab)) {
+      addNewTab(activeTab);
+      new Promise((resolve) => {
+        console.log("ACTIVATED - New Promise 2");
+        chrome.storage.onChanged.addListener(resolve);
+      }).then((data) => {
+        console.log("ACTIVATED - Promise.then 2");
+        console.log(data.data.newValue);
+        setBadgeData(data.data.newValue, activeTab);
+      });
+    } else {
+      console.log("No Promise");
+      console.log(items);
+      setBadgeData(items.data, activeTab);
+    }
+  });
 });
 
 //onUpdated
@@ -170,30 +255,14 @@ chrome.tabs.onUpdated.addListener(
     if (!tab.url.startsWith("http")) return;
     if (typeof tab.url === "undefined" || typeof domain === "undefined") return;
     if (tab.status !== "complete") return;
-
     updateRequired(domain, tabId).then((result) => {
       if (!result) {
         console.log("update not required");
         return;
       } else {
         console.log("updateRequired");
-        getCookies();
-        // getCookies().then((result) => {
-        //   console.log(result);
-        //   // setBadgeColor("green");
-        //   // setBadgeText(result.toString());
-        // });
+        getCookies(tabId);
       }
     });
-
-    // if (!updateRequired(domain, tabId)) {
-    //   console.log("update not required");
-    //   return;
-    // } else {
-    //   console.log("updateRequired");
-    //   // updateObjValue(tabId, "currentUrl", domain);q
-    //   setBadgeColor("green");
-    //   getCookies().then((result) => setBadgeText(result.toString()));
-    // }
   })
 );
