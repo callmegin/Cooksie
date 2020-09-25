@@ -6,12 +6,12 @@ const reset = () => {
 };
 
 const clear = () => {
-  chrome.storage.sync.clear((data) => {});
+  chrome.storage.local.clear((data) => {});
 };
 
 // const outputData = () => {
 //   console.log(table);
-//   chrome.storage.sync.get((items) => {
+//   chrome.storage.local.get((items) => {
 //     let obj = items.data;
 
 //     obj.map((elRow) => {
@@ -58,30 +58,14 @@ const generateTable = (obj) => {
   let row = new GenerateRows();
   let outerArr = objValuesToArray(obj);
   let innerArr = [];
-
+  console.log(obj);
   outerArr.map((el) => {
     row.setRow();
 
-    if (typeof el !== "object") {
-      //do smth here
-    } else {
-      // console.log(el);
-      innerArr = objValuesToArray(el);
-
-      innerArr.map((innerEl) => {
-        // console.log(innerEl);
-
-        row.newCell();
-        row.addText();
-        row.append();
-        // row.newCell();
-        // console.log(innerEl);
-        // let cell = row.insertCell();
-        // let text = document.createTextNode(count);
-        // cell.appendChild(text);
-      });
-      // generateTable(el);
-    }
+    row.newCell();
+    row.addText(el.currentUrl);
+    row.append();
+    // generateTable(el);
   });
   //for now adding new row can be done here
 
@@ -92,7 +76,7 @@ const generateTable = (obj) => {
   // cell.appendChild(text);
 };
 const outputData = () => {
-  chrome.storage.sync.get((items) => {
+  chrome.storage.local.get((items) => {
     generateTable(items.data);
   });
 };
