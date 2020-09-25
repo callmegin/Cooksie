@@ -143,11 +143,13 @@ const removeTab = (tabId) => {
       }
     })
     .then((result) => {
+      console.log(result);
       return chrome.storage.local.set({ data: result });
     })
     .then((result) => {
       removingInProgress = false;
       if (pendingIds.length > 0) {
+        console.log("removing");
         removeTab();
       }
     });
@@ -277,20 +279,15 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
       new Promise((resolve) => {
         chrome.storage.onChanged.addListener(resolve);
       }).then((data) => {
-        updateRequired(domain, tabId).then((result) => {
-          if (!result) {
-            setBadgeData(data.data.newValue, activeTab);
-            return;
-          } else {
-            getCookies(tabId);
-          }
-        });
+        setBadgeData(data.data.newValue, activeTab);
       });
     } else if (!items.data.find((elem) => elem.id === activeTab)) {
       addNewTab(activeTab);
       new Promise((resolve) => {
         chrome.storage.onChanged.addListener(resolve);
-      }).then((data) => {});
+      }).then((data) => {
+        setBadgeData(data.data.newValue, activeTab);
+      });
     } else {
       setBadgeData(items.data, activeTab);
     }
