@@ -65,20 +65,10 @@ const addNewTab = (tabId) => {
     cookiesUrls: "",
     cookiesAmount: "",
   };
+  console.log("Adding tab - " + tabId);
   setStorage(obj);
 };
 
-//====================================
-//Not needed anymore
-//====================================
-// const updateObjValue = (id, key, value) => {
-//   let tabData = tabsData.find((tab) => tab.id === id);
-//   if (tabData && tabData[key] !== value) {
-//     tabData[key] = value;
-
-//     //
-//   }
-// };
 const getObjectIndexById = (objArr, tabId) =>
   (objIndex = objArr.findIndex((elem) => elem.id === tabId));
 
@@ -93,6 +83,7 @@ const getObjectById = (objArr, tabId) => {
 const updateRequired = (currDom, tabId) => {
   return new Promise((resolve) => {
     chrome.storage.local.get("data", (items) => {
+      // console.log(items);
       let obj = getObjectById(items.data, tabId);
       // if (!obj) resolve(false);
       if (!Object.keys(obj).length > 0) resolve(false);
@@ -100,6 +91,12 @@ const updateRequired = (currDom, tabId) => {
         resolve(false);
       } else {
         obj.currentUrl = currDom;
+        // console.log("///updateRequired///");
+        // console.log("setting this currDom - " + currDom);
+        // console.log("Object being edited with this id - " + tabId + " :");
+        // console.log(obj);
+        // console.log("setting storage with this data:");
+        // console.log(items);
         chrome.storage.local.set(items, () => {});
         resolve(true);
       }
@@ -109,13 +106,22 @@ const updateRequired = (currDom, tabId) => {
 
 const updateTabData = (key, value, tabId) => {
   chrome.storage.local.get((items) => {
+    // console.log("///updateTabData");
+    // console.log("storage items:");
+    // console.log(items);
     let obj = getObjectById(items.data, tabId);
+    // console.log("Object being edited with this id - " + tabId + " :");
+    // console.log(obj);
+
     // if (!obj) return false;
     obj[key] = value;
-
+    // console.log("key and value to be changed - " + key + " - " + value);
+    // console.log("setting this data to storage:");
+    // console.log(items);
     chrome.storage.local.set(items, () => {});
   });
 };
+
 let removingTab = false;
 let pendingIds = [];
 let removingInProgress = false;
@@ -143,50 +149,14 @@ const removeTab = (tabId) => {
       }
     })
     .then((result) => {
-      console.log(result);
       return chrome.storage.local.set({ data: result });
     })
     .then((result) => {
       removingInProgress = false;
       if (pendingIds.length > 0) {
-        console.log("removing");
         removeTab();
       }
     });
-
-  // new Promise((resolve) => {
-  //   chrome.storage.local.get(resolve);
-  // })
-  //   .then((result) => {
-  //     if (Object.keys(result).length > 0 && result.data) {
-  //
-  //       return (result.data = result.data.filter((elem) => {
-  //
-  //         return elem.id !== tabId;
-  //       }));
-  //     }
-  //   })
-  //   .then((result) => {
-  //
-  //
-  //
-  //     return chrome.storage.local.set({ data: result });
-  //   });
-  // chrome.storage.local.get((items) => {
-  //   if (Object.keys(items).length > 0 && items.data) {
-  //
-  //     items.data = items.data.filter((elem) => {
-  //
-  //       return elem.id !== tabId;
-  //     });
-  //     chrome.storage.local.set(items, () => {
-  //       chrome.storage.local.get((items) => {
-  //
-  //
-  //       });
-  //     });
-  //   }
-  // });
 };
 
 //onRemoved
@@ -204,7 +174,9 @@ const setBadgeText = (text) => {
 };
 
 const getCookies = (tabId) => {
+  console.log(tabId);
   chrome.tabs.executeScript(
+    tabId,
     {
       code: 'performance.getEntriesByType("resource").map(el => el.name)',
     },
@@ -212,8 +184,10 @@ const getCookies = (tabId) => {
       if (!data || !data[0] || chrome.runtime.lastError) {
         return;
       }
+      console.log(data);
       const urls = data[0].map((url) => url.split(/[#?]/)[0]);
       const uniqueUrls = [...new Set(urls).values()].filter(Boolean);
+      console.log(uniqueUrls);
       Promise.all(
         uniqueUrls.map(
           (url) =>
@@ -229,6 +203,8 @@ const getCookies = (tabId) => {
         ];
         setBadgeColor("green");
         setBadgeText(cookies.length.toString());
+        console.log("Updating tab with ID - " + tabId);
+        console.log("Cookies to be added - " + cookies.length.toString());
         updateTabData("cookiesAmount", cookies.length.toString(), tabId);
       });
     }
@@ -257,12 +233,9 @@ const setBadgeData = (items, activeTab) => {
     setBadgeText(obj.cookiesAmount.toString());
   } else {
     setBadgeColor("red");
-    setBadgeText("#");
+    setBadgeText("-");
   }
 };
-chrome.storage.onChanged.addListener((data, area) => {
-  chrome.storage.local.get((items) => {});
-});
 
 //onActivated
 chrome.tabs.onActivated.addListener((activeInfo) => {
@@ -305,8 +278,14 @@ chrome.tabs.onUpdated.addListener(
       if (!result) {
         return;
       } else {
+        console.log("STATUS Before running cookies - " + tab.status);
         getCookies(tabId);
       }
     });
   })
 );
+
+//Storage listener
+chrome.storage.onChanged.addListener((data, area) => {
+  console.log(data.data.newValue);
+});
